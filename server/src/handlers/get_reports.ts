@@ -1,13 +1,23 @@
 
+import { db } from '../db';
+import { reportsTable } from '../db/schema';
 import { type Report } from '../schema';
+import { desc } from 'drizzle-orm';
 
 export async function getReports(): Promise<Report[]> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is:
-  // 1. Fetch all reports from database (admin only access)
-  // 2. Include related picture/comment information
-  // 3. Order by created_at (newest first)
-  // 4. Return all report records with their status
-  
-  return Promise.resolve([]);
+  try {
+    const results = await db.select()
+      .from(reportsTable)
+      .orderBy(desc(reportsTable.created_at))
+      .execute();
+
+    return results.map(report => ({
+      ...report,
+      created_at: report.created_at!,
+      reviewed_at: report.reviewed_at
+    }));
+  } catch (error) {
+    console.error('Failed to fetch reports:', error);
+    throw error;
+  }
 }

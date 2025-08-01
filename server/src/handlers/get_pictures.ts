@@ -1,14 +1,43 @@
 
+import { db } from '../db';
+import { picturesTable } from '../db/schema';
 import { type GetPicturesInput, type Picture } from '../schema';
+import { eq, desc, and, SQL } from 'drizzle-orm';
 
 export async function getPictures(input: GetPicturesInput): Promise<Picture[]> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is:
-  // 1. Fetch pictures from database with optional H3 index filtering
-  // 2. Apply pagination with limit/offset
-  // 3. Return pictures ordered by upload_timestamp (newest first)
-  // 4. Exclude flagged pictures from public view
-  // 5. Include vote counts and comment counts for each picture
-  
-  return Promise.resolve([]);
+  try {
+    // Build conditions array
+    const conditions: SQL<unknown>[] = [];
+    
+    // Exclude flagged pictures from public view
+    conditions.push(eq(picturesTable.is_flagged, false));
+    
+    // Apply H3 index filter if provided
+    if (input.h3_index) {
+      conditions.push(eq(picturesTable.h3_index, input.h3_index));
+    }
+
+    // Apply pagination with defaults
+    const limit = input.limit || 20;
+    const offset = input.offset || 0;
+
+    // Build and execute query
+    const results = await db.select()
+      .from(picturesTable)
+      .where(and(...conditions))
+      .orderBy(desc(picturesTable.upload_timestamp))
+      .limit(limit)
+      .offset(offset)
+      .execute();
+
+    // Convert numeric fields back to numbers
+    return results.map(picture => ({
+      ...picture,
+      latitude: picture.latitude ? parseFloat(picture.latitude) : null,
+      longitude: picture.longitude ? parseFloat(picture.longitude) : null
+    }));
+  } catch (error) {
+    console.error('Failed to get pictures:', error);
+    throw error;
+  }
 }

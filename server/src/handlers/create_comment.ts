@@ -1,23 +1,53 @@
 
+import { db } from '../db';
+import { commentsTable, picturesTable, usersTable } from '../db/schema';
 import { type CreateCommentInput, type Comment } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function createComment(input: CreateCommentInput): Promise<Comment> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is:
-  // 1. Validate comment content (length, profanity filtering)
-  // 2. Create new comment record in database
-  // 3. Update comment_count on the associated picture
-  // 4. Return the created comment record
-  
-  return Promise.resolve({
-    id: 1,
-    picture_id: input.picture_id,
-    user_id: input.user_id,
-    content: input.content,
-    upvotes: 0,
-    downvotes: 0,
-    is_flagged: false,
-    flag_reason: null,
-    created_at: new Date()
-  } as Comment);
-}
+export const createComment = async (input: CreateCommentInput): Promise<Comment> => {
+  try {
+    // Verify that the picture exists
+    const picture = await db.select()
+      .from(picturesTable)
+      .where(eq(picturesTable.id, input.picture_id))
+      .execute();
+
+    if (picture.length === 0) {
+      throw new Error('Picture not found');
+    }
+
+    // Verify that the user exists
+    const user = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.id, input.user_id))
+      .execute();
+
+    if (user.length === 0) {
+      throw new Error('User not found');
+    }
+
+    // Insert comment record
+    const result = await db.insert(commentsTable)
+      .values({
+        picture_id: input.picture_id,
+        user_id: input.user_id,
+        content: input.content
+      })
+      .returning()
+      .execute();
+
+    // Update comment_count on the associated picture
+    await db.update(picturesTable)
+      .set({
+        comment_count: picture[0].comment_count + 1
+      })
+      .where(eq(picturesTable.id, input.picture_id))
+      .execute();
+
+    const comment = result[0];
+    return comment;
+  } catch (error) {
+    console.error('Comment creation failed:', error);
+    throw error;
+  }
+};

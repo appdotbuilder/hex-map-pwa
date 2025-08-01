@@ -1,14 +1,32 @@
 
+import { db } from '../db';
+import { commentsTable } from '../db/schema';
 import { type GetCommentsInput, type Comment } from '../schema';
+import { eq, desc } from 'drizzle-orm';
 
 export async function getComments(input: GetCommentsInput): Promise<Comment[]> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is:
-  // 1. Fetch comments for a specific picture from database
-  // 2. Apply pagination with limit/offset
-  // 3. Return comments ordered by created_at (newest first)
-  // 4. Exclude flagged comments from public view
-  // 5. Include vote counts for each comment
-  
-  return Promise.resolve([]);
+  try {
+    // Build query step by step without reassigning
+    const limit = input.limit || 20; // Default limit
+    const offset = input.offset || 0; // Default offset
+    
+    const results = await db.select()
+      .from(commentsTable)
+      .where(eq(commentsTable.picture_id, input.picture_id))
+      .orderBy(desc(commentsTable.created_at))
+      .limit(limit)
+      .offset(offset)
+      .execute();
+
+    // Filter out flagged comments and return properly typed results
+    return results
+      .filter(comment => !comment.is_flagged)
+      .map(comment => ({
+        ...comment,
+        created_at: comment.created_at
+      }));
+  } catch (error) {
+    console.error('Failed to fetch comments:', error);
+    throw error;
+  }
 }
