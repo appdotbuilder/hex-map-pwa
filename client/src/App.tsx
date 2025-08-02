@@ -17,6 +17,7 @@ function App() {
   const [user, setUser] = useState<User | null>(null);
   const [pictures, setPictures] = useState<Picture[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [activeTab, setActiveTab] = useState('map');
@@ -74,9 +75,13 @@ function App() {
     }
   }, [user, loadPictures]);
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !user) return;
+    setSelectedFile(file || null);
+  };
+
+  const handleFileUpload = async () => {
+    if (!selectedFile || !user) return;
 
     setIsLoading(true);
     setUploadProgress(0);
@@ -118,10 +123,10 @@ function App() {
         try {
           const uploadData = {
             user_id: user.id,
-            filename: `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${file.name.split('.').pop()}`,
-            original_filename: file.name,
-            mime_type: file.type,
-            file_size: file.size,
+            filename: `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${selectedFile.name.split('.').pop()}`,
+            original_filename: selectedFile.name,
+            mime_type: selectedFile.type,
+            file_size: selectedFile.size,
             width,
             height,
             latitude,
@@ -136,6 +141,12 @@ function App() {
           setTimeout(() => {
             setUploadProgress(0);
             setIsLoading(false);
+            setSelectedFile(null); // Clear selected file after successful upload
+            // Reset the file input
+            const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+            if (fileInput) {
+              fileInput.value = '';
+            }
           }, 500);
         } catch (error) {
           console.error('Upload failed:', error);
@@ -146,7 +157,7 @@ function App() {
         clearInterval(progressInterval);
       };
       
-      img.src = URL.createObjectURL(file);
+      img.src = URL.createObjectURL(selectedFile);
     } catch (error) {
       console.error('Upload failed:', error);
       setIsLoading(false);
@@ -261,13 +272,27 @@ function App() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-                disabled={isLoading}
-                className="cursor-pointer"
-              />
+              <div className="flex gap-2">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  disabled={isLoading}
+                  className="cursor-pointer flex-1"
+                />
+                <Button 
+                  onClick={handleFileUpload}
+                  disabled={!selectedFile || isLoading}
+                  className="whitespace-nowrap"
+                >
+                  {isLoading ? 'Uploading...' : 'Upload'}
+                </Button>
+              </div>
+              {selectedFile && !isLoading && (
+                <div className="text-sm text-gray-600 bg-blue-50 p-2 rounded">
+                  📎 Selected: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                </div>
+              )}
               {uploadProgress > 0 && (
                 <Progress value={uploadProgress} className="w-full" />
               )}
