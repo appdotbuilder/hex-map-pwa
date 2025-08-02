@@ -87,10 +87,23 @@ function App() {
     setUploadProgress(0);
 
     try {
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev: number) => Math.min(prev + 10, 90));
-      }, 100);
+      // Read file as Base64 data URL
+      setUploadProgress(10);
+      const fileReader = new FileReader();
+      
+      const readFileAsDataURL = (): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          fileReader.onload = () => {
+            setUploadProgress(30);
+            resolve(fileReader.result as string);
+          };
+          fileReader.onerror = reject;
+          fileReader.readAsDataURL(selectedFile);
+        });
+      };
+
+      const dataUrl = await readFileAsDataURL();
+      setUploadProgress(50);
 
       // Extract EXIF data (stub implementation)
       let latitude: number | null = null;
@@ -101,63 +114,69 @@ function App() {
 
       // Create a temporary image to get dimensions
       const img = new Image();
-      img.onload = async () => {
-        width = img.width;
-        height = img.height;
+      const imageLoadPromise = new Promise<void>((resolve) => {
+        img.onload = () => {
+          width = img.width;
+          height = img.height;
+          setUploadProgress(70);
 
-        // For demo purposes, generate random coordinates
-        // In a real app, you'd extract from EXIF data
-        if (Math.random() > 0.3) { // 70% chance of having location
-          latitude = 37.7749 + (Math.random() - 0.5) * 0.1; // Around SF
-          longitude = -122.4194 + (Math.random() - 0.5) * 0.1;
-          exifData = JSON.stringify({
-            GPS: { latitude, longitude },
-            DateTime: new Date().toISOString(),
-            Make: 'Apple',
-            Model: 'iPhone',
-            width,
-            height
-          });
-        }
-
-        try {
-          const uploadData = {
-            user_id: user.id,
-            filename: `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${selectedFile.name.split('.').pop()}`,
-            original_filename: selectedFile.name,
-            mime_type: selectedFile.type,
-            file_size: selectedFile.size,
-            width,
-            height,
-            latitude,
-            longitude,
-            exif_data: exifData
-          };
-
-          const newPicture = await trpc.uploadPicture.mutate(uploadData);
-          setPictures((prev: Picture[]) => [newPicture, ...prev]);
-          setUploadProgress(100);
-          
-          setTimeout(() => {
-            setUploadProgress(0);
-            setIsLoading(false);
-            setSelectedFile(null); // Clear selected file after successful upload
-            // Reset the file input
-            const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-            if (fileInput) {
-              fileInput.value = '';
-            }
-          }, 500);
-        } catch (error) {
-          console.error('Upload failed:', error);
-          setIsLoading(false);
-          setUploadProgress(0);
-        }
-        
-        clearInterval(progressInterval);
-      };
+          // For demo purposes, generate random coordinates
+          // In a real app, you'd extract from EXIF data
+          if (Math.random() > 0.3) { // 70% chance of having location
+            latitude = 37.7749 + (Math.random() - 0.5) * 0.1; // Around SF
+            longitude = -122.4194 + (Math.random() - 0.5) * 0.1;
+            exifData = JSON.stringify({
+              GPS: { latitude, longitude },
+              DateTime: new Date().toISOString(),
+              Make: 'Apple',
+              Model: 'iPhone',
+              width,
+              height
+            });
+          }
+          resolve();
+        };
+      });
       
       img.src = URL.createObjectURL(selectedFile);
+      await imageLoadPromise;
+
+      setUploadProgress(80);
+
+      try {
+        const uploadData = {
+          user_id: user.id,
+          filename: `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${selectedFile.name.split('.').pop()}`,
+          original_filename: selectedFile.name,
+          mime_type: selectedFile.type,
+          file_size: selectedFile.size,
+          width,
+          height,
+          latitude,
+          longitude,
+          exif_data: exifData,
+          data: dataUrl
+        };
+
+        const newPicture = await trpc.uploadPicture.mutate(uploadData);
+        setPictures((prev: Picture[]) => [newPicture, ...prev]);
+        setUploadProgress(100);
+        
+        setTimeout(() => {
+          setUploadProgress(0);
+          setIsLoading(false);
+          setSelectedFile(null); // Clear selected file after successful upload
+          // Reset the file input
+          const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+          if (fileInput) {
+            fileInput.value = '';
+          }
+        }, 500);
+      } catch (error) {
+        console.error('Upload failed:', error);
+        setIsLoading(false);
+        setUploadProgress(0);
+      }
     } catch (error) {
       console.error('Upload failed:', error);
       setIsLoading(false);

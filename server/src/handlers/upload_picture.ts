@@ -16,6 +16,10 @@ export const uploadPicture = async (input: UploadPictureInput): Promise<Picture>
       throw new Error('User not found');
     }
 
+    // TODO: Implement actual file storage (e.g., S3, local disk)
+    // For now, simply acknowledge that the data is received
+    console.log(`Received Base64 data for file: ${input.original_filename}, size: ${input.data.length} characters`);
+
     // Calculate H3 index from coordinates if available
     let h3Index = null;
     if (input.latitude !== null && input.longitude !== null) {

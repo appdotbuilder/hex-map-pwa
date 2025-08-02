@@ -98,7 +98,8 @@ export const uploadPictureInputSchema = z.object({
   height: z.number().nullable(),
   latitude: z.number().nullable(),
   longitude: z.number().nullable(),
-  exif_data: z.string().nullable()
+  exif_data: z.string().nullable(),
+  data: z.string()
 });
 
 export type UploadPictureInput = z.infer<typeof uploadPictureInputSchema>;
